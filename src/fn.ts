@@ -1,20 +1,23 @@
 import { genresStr, moviesGenresStr, moviesStr } from "./const";
 import { parseDbStr } from "./parser";
 
-export type TMoviesSortFields = "id" | "movie" | "year" | "imdb_rating";
-export type TMoviesSortParams = {
-  field: TMoviesSortFields;
-  order: TOrdering;
+type TOrdering = "ASC" | "DESC";
+export type TSortParams = {
+  field: string;
+  order?: TOrdering;
 };
-type TMovie = {
+export type TFilterParams = TSortParams & {
+  value: string | number | RegExp;
+};
+type TIdType = {
   id: number;
+};
+type TMovie = TIdType & {
   movie: string;
   year: number;
   imdb_rating: number;
 };
-type TOrdering = "ASC" | "DESC";
-type TGenre = {
-  id: number;
+type TGenre = TIdType & {
   genre: string;
 };
 type TMovieGenreRelation = {
@@ -28,14 +31,15 @@ const sortBySingleParam = <T>(
   order: TOrdering = "ASC"
 ) => {
   list.sort((a, b) => {
-    //сортировка по числам
-    if (param === "id" || param === "year" || param === "imdb_rating") {
-      return order === "ASC" ? b[param] - a[param] : a[param] - b[param];
-    }
-    //сортировка по тексту
     if (a[param] === b[param]) {
       return 0;
     }
+    //сортировка числовых и булевых полей
+    const paramType = typeof a[param];
+    if (paramType !== "string") {
+      return order === "ASC" ? b[param] - a[param] : a[param] - b[param];
+    }
+    //сортировка по тексту
     const movieSortResult =
       order === "ASC" ? a[param] > b[param] : a[param] < b[param];
     return movieSortResult ? 1 : -1;
@@ -43,76 +47,115 @@ const sortBySingleParam = <T>(
   return list;
 };
 
-export const sortGenres = (
-  param: "id" | "genre" = "id",
-  order: TOrdering
-): TGenre[] => {
-  const genres = parseDbStr<TGenre>(genresStr);
-  return sortBySingleParam<TGenre>(genres, param, order);
+export const doSort = <T>(str: string, params: TSortParams[]) => {
+  const list = parseDbStr<T>(str);
+  params.forEach((param) => sortBySingleParam(list, param.field, param.order));
+  return list;
 };
-export const sortMovies = (params: TMoviesSortParams[]): TMovie[] => {
-  const movies = parseDbStr<TMovie>(moviesStr);
-  params.forEach((param) =>
-    sortBySingleParam(movies, param.field, param.order)
-  );
-  return movies;
-};
-export const filterMoviesByRating = (rating: number, order: TOrdering) => {
-  const movies = parseDbStr<TMovie>(moviesStr);
-  return movies.filter((m) =>
-    order === "ASC" ? m.imdb_rating >= rating : m.imdb_rating <= rating
-  );
-};
-export const filterMoviesByName = (name: string | RegExp) => {
-  const movies = parseDbStr<TMovie>(moviesStr);
-  let pattern: RegExp;
-  if (typeof name === "string") {
-    //патерн для глобального регитронечувствительного поиска
-    pattern = new RegExp(name, "ig");
-  } else {
-    pattern = name;
+const doSingleFilter = <T>(list: T[], param: TFilterParams) => {
+  if (typeof list[0][param.field] === "number") {
+    return list.filter((m) =>
+      param.order === "ASC"
+        ? m[param.field] >= param.value
+        : m[param.field] <= param.value
+    );
   }
-  return movies.filter((m) => m.movie.match(pattern));
+  let pattern: RegExp;
+  if (typeof param.value === "string") {
+    //патерн для глобального региcтронечувствительного поиска
+    pattern = new RegExp(param.value, "ig");
+  } else {
+    pattern = param.value as RegExp;
+  }
+  return list.filter((m) => m[param.field].match(pattern));
 };
-export const filmById = (id: number): TMovie[] => {
-  const movies = parseDbStr<TMovie>(moviesStr);
-  //тут можно было бы использовать .find, но при уникальном id будет всё равно
-  //возвращаться только одна запись в массиве и это потом удобнее использовать
-  //в сериализаторе
-  return movies.filter((m) => m.id === id);
+export const doFilter = <T>(str: string, params: TFilterParams[]) => {
+  const list = parseDbStr<T>(str);
+  let result = list;
+  params.forEach((param) => {
+    result = doSingleFilter(result, param);
+  });
+  return result;
 };
-export const genreById = (id: number): TMovie[] => {
-  const genres = parseDbStr<TMovie>(genresStr);
-  return genres.filter((g) => g.id === id);
+
+export const getById = <T extends TIdType>(str: string, id: number) => {
+  const list = parseDbStr(str) as T[];
+  return list.filter((m) => m.id === id);
+};
+const getByRelationTable = <T>(
+  targetStr: string,
+  fieldInMainTable: string,
+  relationStr: string,
+  fieldInRelationTable: string,
+  relatedValue: number | string
+) => {
+  const list = parseDbStr<T>(targetStr);
+  const relations = parseDbStr(relationStr);
+  const relationField = Object.keys(relations[0]).find(
+    (f) => f !== fieldInRelationTable
+  );
+  const targetRelations = relations.filter(
+    (r) => r[relationField] === relatedValue
+  );
+  const targetValues = targetRelations.map((r) => r[fieldInRelationTable]);
+  const result = list.filter((el) =>
+    targetValues.includes(el[fieldInMainTable])
+  );
+  return result;
 };
 export const filmsByGenreId = (genre_id: number): TMovie[] => {
-  const movies = parseDbStr<TMovie>(moviesStr);
-  const relation = parseDbStr<TMovieGenreRelation>(moviesGenresStr);
-  //получаем записи взаимосвязи только с нужными id
-  const targetRelation = relation.filter((r) => r.genre_id === genre_id);
-  //вытаскиваем нужные айдишники
-  const targetMoviesIds = targetRelation.map((r) => r.movie_id);
-  const result = movies.filter((m) => targetMoviesIds.includes(m.id));
-  return result;
+  return getByRelationTable(
+    moviesStr,
+    "id",
+    moviesGenresStr,
+    "movie_id",
+    genre_id
+  );
 };
 export const genresByFilmId = (movie_id: number): TGenre[] => {
-  const genres = parseDbStr<TGenre>(genresStr);
-  const relation = parseDbStr<TMovieGenreRelation>(moviesGenresStr);
-  //получаем записи взаимосвязи только с нужными id
-  const targetRelation = relation.filter((r) => r.movie_id === movie_id);
-  //вытаскиваем нужные айдишники
-  const targetGenreIds = targetRelation.map((r) => r.genre_id);
-  const result = genres.filter((g) => targetGenreIds.includes(g.id));
-  return result;
+  return getByRelationTable(
+    genresStr,
+    "id",
+    moviesGenresStr,
+    "genre_id",
+    movie_id
+  );
+};
+export const getByFullRelation = <T>(
+  mainStr: string,
+  relationFieldInMainTable: string,
+  relationStr: string,
+  mainFieldInRelationTable: string,
+  secondStr: string,
+  relationFiendInSecondTable: string,
+  targetField: string,
+  targetValue: string | number
+) => {
+  const secondList = parseDbStr(secondStr);
+  const relatedEl = secondList.find(
+    (el) =>
+      `${el[targetField]}`.toLowerCase() === `${targetValue}`.toLowerCase()
+  );
+  const relatedValue = relatedEl ? relatedEl[relationFiendInSecondTable] : null;
+  return getByRelationTable<T>(
+    mainStr,
+    relationFieldInMainTable,
+    relationStr,
+    mainFieldInRelationTable,
+    relatedValue
+  );
 };
 const filmsByGenre = (genre: string): TMovie[] => {
-  const genres = parseDbStr<TGenre>(genresStr);
-  const genreObj = genres.find(
-    (g) => g.genre.toLowerCase() === genre.toLowerCase()
+  return getByFullRelation(
+    moviesStr,
+    "id",
+    moviesGenresStr,
+    "movie_id",
+    genresStr,
+    "id",
+    "genre",
+    genre
   );
-  const genre_id = genreObj ? genreObj.id : 0;
-  const result = filmsByGenreId(genre_id);
-  return result;
 };
 export const sortedFilmsByGenre = (genre: string, order: TOrdering) =>
   sortBySingleParam(filmsByGenre(genre), "imdb_rating", order);

@@ -1,15 +1,12 @@
+import { genresStr, moviesStr } from "./const";
 import {
-  filmById,
+  doFilter,
+  doSort,
   filmsByGenreId,
-  filterMoviesByName,
-  filterMoviesByRating,
-  genreById,
   genresByFilmId,
+  getById,
   sortedFilmsByGenre,
-  sortGenres,
-  sortMovies,
-  TMoviesSortFields,
-  TMoviesSortParams,
+  TSortParams,
 } from "./fn";
 import { serializeToDbStr } from "./parser";
 import { prompt } from "./prompt";
@@ -42,7 +39,7 @@ const start = async () => {
         );
         const order = orderAns === "DESC" ? "DESC" : "ASC";
         console.log(
-          serializeToDbStr(sortMovies([{ field: "imdb_rating", order }]))
+          serializeToDbStr(doSort(moviesStr, [{ field: "imdb_rating", order }]))
         );
       }
       start();
@@ -53,14 +50,16 @@ const start = async () => {
           "Введите ASC или DESC. Неправильный ввод будет воспринят как ASC: "
         );
         const order = orderAns === "DESC" ? "DESC" : "ASC";
-        console.log(serializeToDbStr(sortGenres("genre", order)));
+        console.log(
+          serializeToDbStr(doSort(genresStr, [{ field: "genre", order }]))
+        );
       }
       start();
       break;
     case 3:
       {
         const fields = ["id", "movie", "year", "imdb_rating"];
-        const params: TMoviesSortParams[] = [];
+        const params: TSortParams[] = [];
         for (let i = 0; i < 2; i++) {
           let field = await prompt(
             `Укажите один из перечисленных пунктов: ${fields.join(", ")}: `
@@ -76,9 +75,9 @@ const start = async () => {
             "Введите ASC или DESC. Неправильный ввод будет воспринят как ASC: "
           );
           const order = orderAns === "DESC" ? "DESC" : "ASC";
-          params.push({ field: field as TMoviesSortFields, order });
+          params.push({ field, order });
         }
-        console.log(serializeToDbStr(sortMovies(params)));
+        console.log(serializeToDbStr(doSort(moviesStr, params)));
       }
       start();
       break;
@@ -95,8 +94,14 @@ const start = async () => {
           "Введите один из перечисленных пунктов: 1 - ниже указаного рейтинга, всё остальное - выше: "
         );
 
-        const ord = strOrd === "1" ? "DESC" : "ASC";
-        console.log(serializeToDbStr(filterMoviesByRating(rating, ord)));
+        const order = strOrd === "1" ? "DESC" : "ASC";
+        console.log(
+          serializeToDbStr(
+            doFilter(moviesStr, [
+              { field: "imdb_rating", value: rating, order },
+            ])
+          )
+        );
       }
       start();
       break;
@@ -108,7 +113,11 @@ const start = async () => {
         if (pattern.trim().length === 0) {
           pattern = /(lord|war)/i;
         }
-        console.log(serializeToDbStr(filterMoviesByName(pattern)));
+        console.log(
+          serializeToDbStr(
+            doFilter(moviesStr, [{ field: "movie", value: pattern }])
+          )
+        );
       }
       start();
       break;
@@ -121,7 +130,7 @@ const start = async () => {
           );
         }
         const id = Number(strId);
-        console.log(serializeToDbStr(filmById(id)));
+        console.log(serializeToDbStr(getById(moviesStr, id)));
       }
       start();
       break;
@@ -134,7 +143,7 @@ const start = async () => {
           );
         }
         const id = Number(strId);
-        console.log(serializeToDbStr(genreById(id)));
+        console.log(serializeToDbStr(getById(genresStr, id)));
       }
       start();
       break;
