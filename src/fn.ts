@@ -28,9 +28,11 @@ const sortBySingleParam = <T>(
   order: TOrdering = "ASC"
 ) => {
   list.sort((a, b) => {
+    //сортировка по числам
     if (param === "id" || param === "year" || param === "imdb_rating") {
       return order === "ASC" ? b[param] - a[param] : a[param] - b[param];
     }
+    //сортировка по тексту
     if (a[param] === b[param]) {
       return 0;
     }
@@ -65,6 +67,7 @@ export const filterMoviesByName = (name: string | RegExp) => {
   const movies = parseDbStr<TMovie>(moviesStr);
   let pattern: RegExp;
   if (typeof name === "string") {
+    //патерн для глобального регитронечувствительного поиска
     pattern = new RegExp(name, "ig");
   } else {
     pattern = name;
@@ -73,6 +76,9 @@ export const filterMoviesByName = (name: string | RegExp) => {
 };
 export const filmById = (id: number): TMovie[] => {
   const movies = parseDbStr<TMovie>(moviesStr);
+  //тут можно было бы использовать .find, но при уникальном id будет всё равно
+  //возвращаться только одна запись в массиве и это потом удобнее использовать
+  //в сериализаторе
   return movies.filter((m) => m.id === id);
 };
 export const genreById = (id: number): TMovie[] => {
@@ -82,7 +88,9 @@ export const genreById = (id: number): TMovie[] => {
 export const filmsByGenreId = (genre_id: number): TMovie[] => {
   const movies = parseDbStr<TMovie>(moviesStr);
   const relation = parseDbStr<TMovieGenreRelation>(moviesGenresStr);
+  //получаем записи взаимосвязи только с нужными id
   const targetRelation = relation.filter((r) => r.genre_id === genre_id);
+  //вытаскиваем нужные айдишники
   const targetMoviesIds = targetRelation.map((r) => r.movie_id);
   const result = movies.filter((m) => targetMoviesIds.includes(m.id));
   return result;
@@ -90,7 +98,9 @@ export const filmsByGenreId = (genre_id: number): TMovie[] => {
 export const genresByFilmId = (movie_id: number): TGenre[] => {
   const genres = parseDbStr<TGenre>(genresStr);
   const relation = parseDbStr<TMovieGenreRelation>(moviesGenresStr);
+  //получаем записи взаимосвязи только с нужными id
   const targetRelation = relation.filter((r) => r.movie_id === movie_id);
+  //вытаскиваем нужные айдишники
   const targetGenreIds = targetRelation.map((r) => r.genre_id);
   const result = genres.filter((g) => targetGenreIds.includes(g.id));
   return result;
