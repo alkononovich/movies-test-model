@@ -1,0 +1,15 @@
+.idea
+.vscode
+.DS_Store
+*.log
+npm-debug.log*
+yarn-error.log*
+coverage
+.cache-loader/*
+
+.env
+dev.env
+prod.env
+node_modules
+dist
+*-sa-key.json
