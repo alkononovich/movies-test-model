@@ -1,7 +1,4 @@
-import { genresStr, moviesGenresStr, moviesStr } from "./const";
-import { parseDbStr } from "./parser";
-
-type TOrdering = "ASC" | "DESC";
+export type TOrdering = "ASC" | "DESC";
 export type TSortParams = {
   field: string;
   order?: TOrdering;
@@ -9,23 +6,11 @@ export type TSortParams = {
 export type TFilterParams = TSortParams & {
   value: string | number | RegExp;
 };
-type TIdType = {
+export type TIdType = {
   id: number;
 };
-type TMovie = TIdType & {
-  movie: string;
-  year: number;
-  imdb_rating: number;
-};
-type TGenre = TIdType & {
-  genre: string;
-};
-type TMovieGenreRelation = {
-  movie_id: number;
-  genre_id: number;
-};
 
-const sortBySingleParam = <T>(
+export const sortBySingleParam = <T>(
   list: T[],
   param: string,
   order: TOrdering = "ASC"
@@ -47,8 +32,7 @@ const sortBySingleParam = <T>(
   return list;
 };
 
-export const doSort = <T>(str: string, params: TSortParams[]) => {
-  const list = parseDbStr<T>(str);
+export const doSort = <T>(list: T[], params: TSortParams[]) => {
   params.forEach((param) => sortBySingleParam(list, param.field, param.order));
   return list;
 };
@@ -69,32 +53,27 @@ const doSingleFilter = <T>(list: T[], param: TFilterParams) => {
   }
   return list.filter((m) => m[param.field].match(pattern));
 };
-export const doFilter = <T>(str: string, params: TFilterParams[]) => {
-  const list = parseDbStr<T>(str);
-  let result = list;
-  params.forEach((param) => {
-    result = doSingleFilter(result, param);
-  });
+export const doFilter = <T>(list: T[], params: TFilterParams[]) => {
+  const result = params.reduce((acc, cur) => {
+    return doSingleFilter(acc, cur);
+  }, list);
   return result;
 };
 
-export const getById = <T extends TIdType>(str: string, id: number) => {
-  const list = parseDbStr(str) as T[];
-  return list.filter((m) => m.id === id);
+export const getById = <T extends TIdType>(list: T[], id: number) => {
+  return list.find((m) => m.id === id);
 };
-const getByRelationTable = <T>(
-  targetStr: string,
+export const getByRelationTable = <T>(
+  list: T[],
   fieldInMainTable: string,
-  relationStr: string,
+  relationList: any[],
   fieldInRelationTable: string,
   relatedValue: number | string
 ) => {
-  const list = parseDbStr<T>(targetStr);
-  const relations = parseDbStr(relationStr);
-  const relationField = Object.keys(relations[0]).find(
+  const relationField = Object.keys(relationList[0]).find(
     (f) => f !== fieldInRelationTable
   );
-  const targetRelations = relations.filter(
+  const targetRelations = relationList.filter(
     (r) => r[relationField] === relatedValue
   );
   const targetValues = targetRelations.map((r) => r[fieldInRelationTable]);
@@ -103,59 +82,26 @@ const getByRelationTable = <T>(
   );
   return result;
 };
-export const filmsByGenreId = (genre_id: number): TMovie[] => {
-  return getByRelationTable(
-    moviesStr,
-    "id",
-    moviesGenresStr,
-    "movie_id",
-    genre_id
-  );
-};
-export const genresByFilmId = (movie_id: number): TGenre[] => {
-  return getByRelationTable(
-    genresStr,
-    "id",
-    moviesGenresStr,
-    "genre_id",
-    movie_id
-  );
-};
 export const getByFullRelation = <T>(
-  mainStr: string,
+  list: T[],
   relationFieldInMainTable: string,
-  relationStr: string,
+  relations: any[],
   mainFieldInRelationTable: string,
-  secondStr: string,
+  secondList: any[],
   relationFiendInSecondTable: string,
   targetField: string,
   targetValue: string | number
 ) => {
-  const secondList = parseDbStr(secondStr);
   const relatedEl = secondList.find(
     (el) =>
       `${el[targetField]}`.toLowerCase() === `${targetValue}`.toLowerCase()
   );
   const relatedValue = relatedEl ? relatedEl[relationFiendInSecondTable] : null;
   return getByRelationTable<T>(
-    mainStr,
+    list,
     relationFieldInMainTable,
-    relationStr,
+    relations,
     mainFieldInRelationTable,
     relatedValue
   );
 };
-const filmsByGenre = (genre: string): TMovie[] => {
-  return getByFullRelation(
-    moviesStr,
-    "id",
-    moviesGenresStr,
-    "movie_id",
-    genresStr,
-    "id",
-    "genre",
-    genre
-  );
-};
-export const sortedFilmsByGenre = (genre: string, order: TOrdering) =>
-  sortBySingleParam(filmsByGenre(genre), "imdb_rating", order);

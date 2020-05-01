@@ -3,7 +3,7 @@ export const moviesStr = `id,movie,year,imdb_rating
 2,The Lord of the Rings: The Return of the King,2003,8.9
 3,Inception,2010,8.8
 4,Star Wars: Episode V - The Empire Strikes Back,1980,8.8
-`
+`;
 
 export const genresStr = `id,genre
 1,Action
@@ -15,7 +15,7 @@ export const genresStr = `id,genre
 7,Horror
 8,Western
 9,Comedy
-`
+`;
 
 export const moviesGenresStr = `movie_id,genre_id
 1,1
@@ -30,4 +30,18 @@ export const moviesGenresStr = `movie_id,genre_id
 4,1
 4,2
 4,5
-`
+`;
+
+export const menuList = `
+1. отсортировать данные таблицы фильмов по рейтингу, ASC or DESC;
+2. отсортировать данные таблицы жанров по именам, ASC or DESC;
+3. отсортировать данные таблицы фильмов одновременно по 2м полям, направление сортировки по каждому полю независимо от другого поля;
+4. отфильтровать данные таблицы фильмов по рейтингу (например выбрать все выше 5.0);
+5. отфильтровать данные таблицы фильмов по регулярному выражению (например имя удовлетворяет паттерну /(lord|war)/i);
+6. получить запись о фильме по его номеру (поле id);
+7. получить запись о жанре по его номеру (поле id);
+8. получить список фильмов по номеру жанра;
+9. получить список жанров по номеру фильма;
+10. вывести список фильмов жанра 'Action', упорядоченных по убыванию рейтинга
+0. закрыть
+`;
